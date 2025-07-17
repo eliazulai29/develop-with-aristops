@@ -1,5 +1,5 @@
 {
-  "default_provider": "google",
+  "default_provider": "openai",
   "providers": {
     "google": {
       "default_model": "gemini-2.0-flash",
@@ -27,22 +27,22 @@
       "supportsCustomModel": true,
       "models": {
         "gpt-4o": {
-          "temperature": 0.7,
+          "temperature": 0,
           "top_p": 0.8
         },
         "gpt-4.1": {
-          "temperature": 0.7,
+          "temperature": 0,
           "top_p": 0.8
         },
         "o1": {
-          "temperature": 0.7,
+          "temperature": 0,
           "top_p": 0.8
         },
         "o3": {
-          "temperature": 1.0
+          "temperature": 0
         },
         "o4-mini": {
-          "temperature": 0.7,
+          "temperature": 0,
           "top_p": 0.8
         }
       }
