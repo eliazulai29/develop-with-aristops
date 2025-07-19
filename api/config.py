@@ -282,6 +282,34 @@ if lang_config:
     configs["lang_config"] = lang_config
 
 
+def get_resolved_model(provider="google", model=None):
+    """
+    Utility function to get the resolved model name for consistent parameter forwarding.
+    
+    Parameters:
+        provider (str): Model provider ('google', 'openai', 'openrouter', 'ollama', 'bedrock', 'azure')
+        model (str): Model name, or None to use default model
+        
+    Returns:
+        str: The resolved model name (default model if none specified)
+    """
+    # Get provider configuration
+    if "providers" not in configs:
+        raise ValueError("Provider configuration not loaded")
+
+    provider_config = configs["providers"].get(provider)
+    if not provider_config:
+        raise ValueError(f"Configuration for provider '{provider}' not found")
+
+    # If model not provided, use default model for the provider
+    if not model:
+        model = provider_config.get("default_model")
+        if not model:
+            raise ValueError(f"No default model specified for provider '{provider}'")
+    
+    return model
+
+
 def get_model_config(provider="google", model=None):
     """
     Get configuration for the specified provider and model
@@ -305,16 +333,13 @@ def get_model_config(provider="google", model=None):
     if not model_client:
         raise ValueError(f"Model client not specified for provider '{provider}'")
 
-    # If model not provided, use default model for the provider
-    if not model:
-        model = provider_config.get("default_model")
-        if not model:
-            raise ValueError(f"No default model specified for provider '{provider}'")
+    # Use the utility function to get resolved model
+    resolved_model = get_resolved_model(provider, model)
 
     # Get model parameters (if present)
     model_params = {}
-    if model in provider_config.get("models", {}):
-        model_params = provider_config["models"][model]
+    if resolved_model in provider_config.get("models", {}):
+        model_params = provider_config["models"][resolved_model]
     else:
         default_model = provider_config.get("default_model")
         model_params = provider_config["models"][default_model]
@@ -328,11 +353,11 @@ def get_model_config(provider="google", model=None):
     if provider == "ollama":
         # Ollama uses a slightly different parameter structure
         if "options" in model_params:
-            result["model_kwargs"] = {"model": model, **model_params["options"]}
+            result["model_kwargs"] = {"model": resolved_model, **model_params["options"]}
         else:
-            result["model_kwargs"] = {"model": model}
+            result["model_kwargs"] = {"model": resolved_model}
     else:
         # Standard structure for other providers
-        result["model_kwargs"] = {"model": model, **model_params}
+        result["model_kwargs"] = {"model": resolved_model, **model_params}
 
     return result

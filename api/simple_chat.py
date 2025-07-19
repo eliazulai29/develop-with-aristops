@@ -445,7 +445,7 @@ This file contains...
                 model_type=ModelType.LLM
             )
         elif request.provider == "openrouter":
-            logger.info(f"Using OpenRouter with model: {request.model}")
+            logger.info(f"Using OpenRouter with model: {model_config['model']}")
 
             # Check if OpenRouter API key is set
             if not OPENROUTER_API_KEY:
@@ -454,7 +454,7 @@ This file contains...
 
             model = OpenRouterClient()
             model_kwargs = {
-                "model": request.model,
+                "model": model_config["model"],
                 "stream": True,
                 "temperature": model_config["temperature"]
             }
@@ -468,7 +468,7 @@ This file contains...
                 model_type=ModelType.LLM
             )
         elif request.provider == "openai":
-            logger.info(f"Using Openai protocol with model: {request.model}")
+            logger.info(f"Using Openai protocol with model: {model_config['model']}")
 
             # Check if an API key is set for Openai
             if not OPENAI_API_KEY:
@@ -478,7 +478,7 @@ This file contains...
             # Initialize Openai client
             model = OpenAIClient()
             model_kwargs = {
-                "model": request.model,
+                "model": model_config["model"],
                 "stream": True,
                 "temperature": model_config["temperature"]
             }
@@ -492,7 +492,7 @@ This file contains...
                 model_type=ModelType.LLM
             )
         elif request.provider == "bedrock":
-            logger.info(f"Using AWS Bedrock with model: {request.model}")
+            logger.info(f"Using AWS Bedrock with model: {model_config['model']}")
 
             # Check if AWS credentials are set
             if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
@@ -502,7 +502,7 @@ This file contains...
             # Initialize Bedrock client
             model = BedrockClient()
             model_kwargs = {
-                "model": request.model,
+                "model": model_config["model"],
                 "temperature": model_config["temperature"],
                 "top_p": model_config["top_p"]
             }
@@ -513,12 +513,12 @@ This file contains...
                 model_type=ModelType.LLM
             )
         elif request.provider == "azure":
-            logger.info(f"Using Azure AI with model: {request.model}")
+            logger.info(f"Using Azure AI with model: {model_config['model']}")
 
             # Initialize Azure AI client
             model = AzureAIClient()
             model_kwargs = {
-                "model": request.model,
+                "model": model_config["model"],
                 "stream": True,
                 "temperature": model_config["temperature"],
                 "top_p": model_config["top_p"]
