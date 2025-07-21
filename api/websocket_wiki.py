@@ -532,8 +532,10 @@ This file contains...
                     if text and not text.startswith('model=') and not text.startswith('created_at='):
                         text = text.replace('<think>', '').replace('</think>', '')
                         await websocket.send_text(text)
-                # Explicitly close the WebSocket connection after the response is complete
+                # Send completion signal and close connection
+                await websocket.send_text("[STREAM_COMPLETE]")
                 await websocket.close()
+
             elif request.provider == "openrouter":
                 try:
                     # Get the response and handle it properly using the previously created api_kwargs
@@ -542,14 +544,17 @@ This file contains...
                     # Handle streaming response from OpenRouter
                     async for chunk in response:
                         await websocket.send_text(chunk)
-                    # Explicitly close the WebSocket connection after the response is complete
+                    # Send completion signal and close connection
+                    await websocket.send_text("[STREAM_COMPLETE]")
                     await websocket.close()
+
                 except Exception as e_openrouter:
                     logger.error(f"Error with OpenRouter API: {str(e_openrouter)}")
                     error_msg = f"\nError with OpenRouter API: {str(e_openrouter)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
                     await websocket.send_text(error_msg)
-                    # Close the WebSocket connection after sending the error message
+                    await websocket.send_text("[STREAM_COMPLETE]")
                     await websocket.close()
+
             elif request.provider == "openai":
                 try:
                     # Get the response and handle it properly using the previously created api_kwargs
@@ -564,14 +569,17 @@ This file contains...
                                 text = getattr(delta, "content", None)
                                 if text is not None:
                                     await websocket.send_text(text)
-                    # Explicitly close the WebSocket connection after the response is complete
+                    # Send completion signal and close connection
+                    await websocket.send_text("[STREAM_COMPLETE]")
                     await websocket.close()
+
                 except Exception as e_openai:
                     logger.error(f"Error with Openai API: {str(e_openai)}")
                     error_msg = f"\nError with Openai API: {str(e_openai)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
                     await websocket.send_text(error_msg)
-                    # Close the WebSocket connection after sending the error message
+                    await websocket.send_text("[STREAM_COMPLETE]")
                     await websocket.close()
+
             elif request.provider == "azure":
                 try:
                     # Get the response and handle it properly using the previously created api_kwargs
@@ -586,14 +594,17 @@ This file contains...
                                 text = getattr(delta, "content", None)
                                 if text is not None:
                                     await websocket.send_text(text)
-                    # Explicitly close the WebSocket connection after the response is complete
+                    # Send completion signal and close connection
+                    await websocket.send_text("[STREAM_COMPLETE]")
                     await websocket.close()
+
                 except Exception as e_azure:
                     logger.error(f"Error with Azure AI API: {str(e_azure)}")
                     error_msg = f"\nError with Azure AI API: {str(e_azure)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
                     await websocket.send_text(error_msg)
-                    # Close the WebSocket connection after sending the error message
+                    await websocket.send_text("[STREAM_COMPLETE]")
                     await websocket.close()
+
             else:
                 # Generate streaming response
                 response = model.generate_content(prompt, stream=True)
@@ -601,7 +612,8 @@ This file contains...
                 for chunk in response:
                     if hasattr(chunk, 'text'):
                         await websocket.send_text(chunk.text)
-                # Explicitly close the WebSocket connection after the response is complete
+                # Send completion signal and close connection
+                await websocket.send_text("[STREAM_COMPLETE]")
                 await websocket.close()
 
         except Exception as e_outer:

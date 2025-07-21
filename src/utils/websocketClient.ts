@@ -57,6 +57,13 @@ export const createChatWebSocket = (
   };
   
   ws.onmessage = (event) => {
+    // Check for completion signal
+    if (event.data === "[STREAM_COMPLETE]") {
+      // Close the connection when we receive the completion signal
+      ws.close();
+      return;
+    }
+    
     // Call the message handler with the received text
     onMessage(event.data);
   };
