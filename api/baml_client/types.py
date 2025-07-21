@@ -37,8 +37,20 @@ def get_checks(checks: typing.Dict[CheckName, Check]) -> typing.List[Check]:
 def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
     return all(check.status == "succeeded" for check in get_checks(checks))
 # #########################################################################
-# Generated enums (1)
+# Generated enums (3)
 # #########################################################################
+
+class ArchitecturalPattern(str, Enum):
+    MVC = "MVC"
+    MICROSERVICES = "MICROSERVICES"
+    MONOLITH = "MONOLITH"
+    LAYERED = "LAYERED"
+    EVENT_DRIVEN = "EVENT_DRIVEN"
+    REPOSITORY = "REPOSITORY"
+    FACTORY = "FACTORY"
+    SINGLETON = "SINGLETON"
+    OBSERVER = "OBSERVER"
+    UNKNOWN = "UNKNOWN"
 
 class ComponentType(str, Enum):
     FUNCTION = "FUNCTION"
@@ -46,15 +58,50 @@ class ComponentType(str, Enum):
     MODULE = "MODULE"
     FILE = "FILE"
     API_ENDPOINT = "API_ENDPOINT"
+    SERVICE = "SERVICE"
+    CONFIG = "CONFIG"
+    TEST = "TEST"
+    MIDDLEWARE = "MIDDLEWARE"
+    UTILS = "UTILS"
+
+class QualityIssue(str, Enum):
+    HIGH_COMPLEXITY = "HIGH_COMPLEXITY"
+    SECURITY_VULNERABILITY = "SECURITY_VULNERABILITY"
+    PERFORMANCE_BOTTLENECK = "PERFORMANCE_BOTTLENECK"
+    CODE_DUPLICATION = "CODE_DUPLICATION"
+    POOR_ERROR_HANDLING = "POOR_ERROR_HANDLING"
+    TIGHT_COUPLING = "TIGHT_COUPLING"
+    LOW_COHESION = "LOW_COHESION"
+    MISSING_TESTS = "MISSING_TESTS"
+    HARDCODED_VALUES = "HARDCODED_VALUES"
+    LONG_PARAMETER_LIST = "LONG_PARAMETER_LIST"
 
 # #########################################################################
-# Generated classes (3)
+# Generated classes (8)
 # #########################################################################
+
+class ArchitecturalInsight(BaseModel):
+    pattern: ArchitecturalPattern
+    confidence: typing.Union[typing_extensions.Literal['high'], typing_extensions.Literal['medium'], typing_extensions.Literal['low']]
+    description: str
+    adherence: typing.Union[typing_extensions.Literal['excellent'], typing_extensions.Literal['good'], typing_extensions.Literal['partial'], typing_extensions.Literal['poor']]
+    improvements: typing.List[str]
 
 class CodeAnalysis(BaseModel):
     components: typing.Optional[typing.List["CodeComponent"]] = None
     dependencies: typing.Optional[typing.List["Dependency"]] = None
     overallSummary: typing.Optional[str] = None
+    architecture: typing.Optional["ArchitecturalInsight"] = None
+    security: typing.Optional["SecurityAnalysis"] = None
+    performance: typing.Optional["PerformanceInsight"] = None
+    testing: typing.Optional["TestingInsight"] = None
+    operations: typing.Optional["OperationalInsight"] = None
+    keyInsights: typing.List[str]
+    debuggingTips: typing.List[str]
+    refactoringPriorities: typing.List[str]
+    howToQuestions: typing.List[str]
+    whereToLook: typing.List[str]
+    whyDecisions: typing.List[str]
 
 class CodeComponent(BaseModel):
     name: str
@@ -64,12 +111,46 @@ class CodeComponent(BaseModel):
     snippet: str
     complexity: typing.Union[typing_extensions.Literal['low'], typing_extensions.Literal['medium'], typing_extensions.Literal['high']]
     dependencies: typing.List[str]
+    purpose: str
+    publicInterface: typing.List[str]
+    qualityIssues: typing.List[QualityIssue]
+    refactoringOpportunities: typing.List[str]
+    testability: typing.Union[typing_extensions.Literal['excellent'], typing_extensions.Literal['good'], typing_extensions.Literal['poor']]
+    reusability: typing.Union[typing_extensions.Literal['high'], typing_extensions.Literal['medium'], typing_extensions.Literal['low']]
 
 class Dependency(BaseModel):
     sourceComponent: str
     targetComponent: str
     type: str
     description: str
+    strength: typing.Union[typing_extensions.Literal['strong'], typing_extensions.Literal['medium'], typing_extensions.Literal['weak']]
+    direction: typing.Union[typing_extensions.Literal['unidirectional'], typing_extensions.Literal['bidirectional']]
+
+class OperationalInsight(BaseModel):
+    configurationFiles: typing.List[str]
+    environmentDependencies: typing.List[str]
+    deploymentConsiderations: typing.List[str]
+    monitoringOpportunities: typing.List[str]
+    maintenanceComplexity: typing.Union[typing_extensions.Literal['low'], typing_extensions.Literal['medium'], typing_extensions.Literal['high']]
+
+class PerformanceInsight(BaseModel):
+    bottlenecks: typing.List[str]
+    optimizationOpportunities: typing.List[str]
+    scalabilityConcerns: typing.List[str]
+    resourceUsage: str
+
+class SecurityAnalysis(BaseModel):
+    vulnerabilities: typing.List[str]
+    securityPatterns: typing.List[str]
+    recommendations: typing.List[str]
+    dataFlowRisks: typing.List[str]
+
+class TestingInsight(BaseModel):
+    testCoverage: typing.Union[typing_extensions.Literal['high'], typing_extensions.Literal['medium'], typing_extensions.Literal['low'], typing_extensions.Literal['unknown']]
+    testableComponents: typing.List[str]
+    hardToTestComponents: typing.List[str]
+    testingRecommendations: typing.List[str]
+    missingTestTypes: typing.List[str]
 
 # #########################################################################
 # Generated type aliases (0)

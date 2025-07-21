@@ -104,8 +104,82 @@ async def handle_websocket_chat(websocket: WebSocket):
             request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
             
-            # Send status after FAISS indexing completes
-            await progress.update_status("✅ Repository indexed. Preparing wiki generation...")
+            # Check if repository is already enriched
+            existing_docs_count = len(request_rag.transformed_docs)
+            logger.info(f"Repository contains {existing_docs_count} documents")
+            
+            if existing_docs_count > 4:  # Already enriched (basic repos typically have 1-4 docs)
+                logger.info(f"Repository already enriched ({existing_docs_count} documents). Skipping BAML enrichment.")
+                await progress.update_status("✅ Using pre-enriched repository data. Ready for questions!")
+            else:
+                # Send status after FAISS indexing completes
+                await progress.update_status("✅ Repository indexed. Starting intelligence enrichment...")
+                
+                # Run BAML enrichment analysis in proper async context
+                try:
+                    # Import with error handling
+                    try:
+                        from api.intelligence.intra_repo_analyzer import IntraRepoAnalyzer
+                    except ImportError as import_error:
+                        logger.warning(f"Could not import IntraRepoAnalyzer: {import_error}")
+                        logger.info("Continuing with basic functionality")
+                        await progress.update_status("✅ Repository indexed. Ready for questions!")
+                        raise Exception("BAML enrichment unavailable")
+                    
+                    # Create the analyzer
+                    analyzer = IntraRepoAnalyzer(progress_manager=progress)
+                    
+                    # Get repository information for enrichment
+                    repo_path = request_rag.db_manager.repo_paths["save_repo_dir"]
+                    existing_documents = request_rag.transformed_docs
+                    
+                    # Get the appropriate embedder to use for enriched documents
+                    retrieve_embedder = request_rag.query_embedder if request_rag.is_ollama_embedder else request_rag.embedder
+                    
+                    # Run the enrichment analysis with proper await
+                    enrichment_result = await analyzer.analyze_and_enrich(
+                        repo_path=repo_path,
+                        repo_url=request.repo_url,
+                        existing_documents=existing_documents,
+                        embedder=retrieve_embedder
+                    )
+                    
+                    if enrichment_result.enriched_documents:
+                        # Add enriched documents to the existing retriever
+                        all_documents = existing_documents + enrichment_result.enriched_documents
+                        
+                        # Update the retriever with enriched documents
+                        from adalflow.components.retriever.faiss_retriever import FAISSRetriever
+                        
+                        # Get the appropriate embedder
+                        retrieve_embedder = request_rag.query_embedder if request_rag.is_ollama_embedder else request_rag.embedder
+                        
+                        # Create new retriever with enriched documents
+                        request_rag.retriever = FAISSRetriever(
+                            **configs["retriever"],
+                            embedder=retrieve_embedder,
+                            documents=all_documents,
+                            document_map_func=lambda doc: doc.vector,
+                        )
+                        
+                        # Update the transformed_docs to include enriched documents
+                        request_rag.transformed_docs = all_documents
+                        
+                        # Save enriched documents to database using proven pattern
+                        request_rag.db_manager.db.load(enrichment_result.enriched_documents)
+                        request_rag.db_manager.db.transform(key="split_and_embed")
+                        request_rag.db_manager.db.save_state(request_rag.db_manager.repo_paths["save_db_file"])
+                        
+                        logger.info(f"Repository enriched with {len(enrichment_result.enriched_documents)} additional insights")
+                        await progress.update_status("✅ Intelligence enrichment complete. Repository ready for questions!")
+                    else:
+                        logger.warning("Enrichment completed but no additional documents generated")
+                        await progress.update_status("✅ Repository analysis complete. Ready for questions!")
+                        
+                except Exception as e:
+                    logger.error(f"Error during intelligence enrichment: {str(e)}")
+                    await progress.update_status("⚠️ Basic indexing complete (enrichment failed). Ready for questions!")
+                    # Continue with basic functionality
         except ValueError as e:
             if "No valid documents with embeddings found" in str(e):
                 logger.error(f"No valid embeddings found: {str(e)}")

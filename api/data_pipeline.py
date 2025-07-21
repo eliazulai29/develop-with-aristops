@@ -16,6 +16,7 @@ from api.ollama_patch import OllamaDocumentProcessor
 from urllib.parse import urlparse, urlunparse, quote
 import requests
 from requests.exceptions import RequestException
+import asyncio
 
 from api.tools.embedder import get_embedder
 
@@ -824,6 +825,7 @@ class DatabaseManager:
         logger.info(f"Total documents: {len(documents)}")
         transformed_docs = self.db.get_transformed_data(key="split_and_embed")
         logger.info(f"Total transformed documents: {len(transformed_docs)}")
+
         return transformed_docs
 
     def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None):
@@ -839,3 +841,5 @@ class DatabaseManager:
             List[Document]: List of Document objects
         """
         return self.prepare_database(repo_url_or_path, type, access_token)
+
+

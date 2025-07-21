@@ -16,6 +16,9 @@ from . import stream_types
 
 type_map = {
 
+    "types.ArchitecturalInsight": types.ArchitecturalInsight,
+    "stream_types.ArchitecturalInsight": stream_types.ArchitecturalInsight,
+
     "types.CodeAnalysis": types.CodeAnalysis,
     "stream_types.CodeAnalysis": stream_types.CodeAnalysis,
 
@@ -25,7 +28,23 @@ type_map = {
     "types.Dependency": types.Dependency,
     "stream_types.Dependency": stream_types.Dependency,
 
+    "types.OperationalInsight": types.OperationalInsight,
+    "stream_types.OperationalInsight": stream_types.OperationalInsight,
+
+    "types.PerformanceInsight": types.PerformanceInsight,
+    "stream_types.PerformanceInsight": stream_types.PerformanceInsight,
+
+    "types.SecurityAnalysis": types.SecurityAnalysis,
+    "stream_types.SecurityAnalysis": stream_types.SecurityAnalysis,
+
+    "types.TestingInsight": types.TestingInsight,
+    "stream_types.TestingInsight": stream_types.TestingInsight,
+
+
+    "types.ArchitecturalPattern": types.ArchitecturalPattern,
 
     "types.ComponentType": types.ComponentType,
+
+    "types.QualityIssue": types.QualityIssue,
 
 }

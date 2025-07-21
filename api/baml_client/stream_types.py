@@ -23,13 +23,31 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (3)
+# Generated classes (8)
 # #########################################################################
+
+class ArchitecturalInsight(BaseModel):
+    pattern: typing.Optional[types.ArchitecturalPattern] = None
+    confidence: typing.Optional[typing.Union[str, str, str]] = None
+    description: typing.Optional[str] = None
+    adherence: typing.Optional[typing.Union[str, str, str, str]] = None
+    improvements: typing.List[str]
 
 class CodeAnalysis(BaseModel):
     components: typing.Optional[typing.List["CodeComponent"]] = None
     dependencies: typing.Optional[typing.List["Dependency"]] = None
     overallSummary: typing.Optional[str] = None
+    architecture: typing.Optional["ArchitecturalInsight"] = None
+    security: typing.Optional["SecurityAnalysis"] = None
+    performance: typing.Optional["PerformanceInsight"] = None
+    testing: typing.Optional["TestingInsight"] = None
+    operations: typing.Optional["OperationalInsight"] = None
+    keyInsights: typing.List[str]
+    debuggingTips: typing.List[str]
+    refactoringPriorities: typing.List[str]
+    howToQuestions: typing.List[str]
+    whereToLook: typing.List[str]
+    whyDecisions: typing.List[str]
 
 class CodeComponent(BaseModel):
     name: typing.Optional[str] = None
@@ -39,12 +57,46 @@ class CodeComponent(BaseModel):
     snippet: typing.Optional[str] = None
     complexity: typing.Optional[typing.Union[str, str, str]] = None
     dependencies: typing.List[str]
+    purpose: typing.Optional[str] = None
+    publicInterface: typing.List[str]
+    qualityIssues: typing.List[types.QualityIssue]
+    refactoringOpportunities: typing.List[str]
+    testability: typing.Optional[typing.Union[str, str, str]] = None
+    reusability: typing.Optional[typing.Union[str, str, str]] = None
 
 class Dependency(BaseModel):
     sourceComponent: typing.Optional[str] = None
     targetComponent: typing.Optional[str] = None
     type: typing.Optional[str] = None
     description: typing.Optional[str] = None
+    strength: typing.Optional[typing.Union[str, str, str]] = None
+    direction: typing.Optional[typing.Union[str, str]] = None
+
+class OperationalInsight(BaseModel):
+    configurationFiles: typing.List[str]
+    environmentDependencies: typing.List[str]
+    deploymentConsiderations: typing.List[str]
+    monitoringOpportunities: typing.List[str]
+    maintenanceComplexity: typing.Optional[typing.Union[str, str, str]] = None
+
+class PerformanceInsight(BaseModel):
+    bottlenecks: typing.List[str]
+    optimizationOpportunities: typing.List[str]
+    scalabilityConcerns: typing.List[str]
+    resourceUsage: typing.Optional[str] = None
+
+class SecurityAnalysis(BaseModel):
+    vulnerabilities: typing.List[str]
+    securityPatterns: typing.List[str]
+    recommendations: typing.List[str]
+    dataFlowRisks: typing.List[str]
+
+class TestingInsight(BaseModel):
+    testCoverage: typing.Optional[typing.Union[str, str, str, str]] = None
+    testableComponents: typing.List[str]
+    hardToTestComponents: typing.List[str]
+    testingRecommendations: typing.List[str]
+    missingTestTypes: typing.List[str]
 
 # #########################################################################
 # Generated type aliases (0)
