@@ -854,6 +854,14 @@ IMPORTANT:
         await new Promise<void>((resolve, reject) => {
           // Handle incoming messages
           ws.onmessage = (event) => {
+            // Check for status update
+            if (event.data.startsWith("STATUS:")) {
+              const statusMessage = event.data.substring(7); // Remove "STATUS:" prefix
+              setLoadingMessage(statusMessage);
+              return;
+            }
+            
+            // Regular chat content
             responseText += event.data;
           };
 

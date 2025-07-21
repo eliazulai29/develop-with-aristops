@@ -15,6 +15,7 @@ from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
 from api.rag import RAG
+from api.intelligence.progress_manager import ProgressManager
 
 # Configure logging
 from api.logging_config import setup_logging
@@ -55,6 +56,9 @@ async def handle_websocket_chat(websocket: WebSocket):
     """
     await websocket.accept()
 
+    # Create progress manager for status updates
+    progress = ProgressManager(websocket)
+
     try:
         # Receive and parse the request data
         request_data = await websocket.receive_json()
@@ -94,8 +98,14 @@ async def handle_websocket_chat(websocket: WebSocket):
                 included_files = [unquote(file_pattern) for file_pattern in request.included_files.split('\n') if file_pattern.strip()]
                 logger.info(f"Using custom included files: {included_files}")
 
+            # Send status update before starting repository processing
+            await progress.update_status("Cloning repository and performing initial analysis...")
+
             request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
+            
+            # Send status after FAISS indexing completes
+            await progress.update_status("✅ Repository indexed. Preparing wiki generation...")
         except ValueError as e:
             if "No valid documents with embeddings found" in str(e):
                 logger.error(f"No valid embeddings found: {str(e)}")

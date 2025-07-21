@@ -44,7 +44,8 @@ export const createChatWebSocket = (
   request: ChatCompletionRequest,
   onMessage: (message: string) => void,
   onError: (error: Event) => void,
-  onClose: () => void
+  onClose: () => void,
+  onStatusUpdate?: (status: string) => void
 ): WebSocket => {
   // Create WebSocket connection
   const ws = new WebSocket(getWebSocketUrl());
@@ -64,7 +65,16 @@ export const createChatWebSocket = (
       return;
     }
     
-    // Call the message handler with the received text
+    // Check for status update
+    if (event.data.startsWith("STATUS:")) {
+      const statusMessage = event.data.substring(7); // Remove "STATUS:" prefix
+      if (onStatusUpdate) {
+        onStatusUpdate(statusMessage);
+      }
+      return;
+    }
+    
+    // Call the message handler with the received text (regular chat content)
     onMessage(event.data);
   };
   
