@@ -796,18 +796,26 @@ class DatabaseManager:
         Returns:
             List[Document]: List of Document objects
         """
-        # check the database
+        # check the database with proper repository validation
         if self.repo_paths and os.path.exists(self.repo_paths["save_db_file"]):
-            logger.info("Loading existing database...")
-            try:
-                self.db = LocalDB.load_state(self.repo_paths["save_db_file"])
-                documents = self.db.get_transformed_data(key="split_and_embed")
-                if documents:
-                    logger.info(f"Loaded {len(documents)} documents from existing database")
-                    return documents
-            except Exception as e:
-                logger.error(f"Error loading existing database: {e}")
-                # Continue to create a new database
+            # Validate that this database actually belongs to the current repository
+            expected_repo_name = self._extract_repo_name_from_url(self.repo_url_or_path, "github")
+            actual_db_name = os.path.basename(self.repo_paths["save_db_file"]).replace('.pkl', '')
+            
+            if expected_repo_name == actual_db_name:
+                logger.info("Loading existing database for current repository...")
+                try:
+                    self.db = LocalDB.load_state(self.repo_paths["save_db_file"])
+                    documents = self.db.get_transformed_data(key="split_and_embed")
+                    if documents:
+                        logger.info(f"Loaded {len(documents)} documents from existing database")
+                        return documents
+                except Exception as e:
+                    logger.error(f"Error loading existing database: {e}")
+                    # Continue to create a new database
+            else:
+                logger.info(f"Database mismatch detected: expected {expected_repo_name}, found {actual_db_name}. Creating new database...")
+                # Wrong database file - create new one
 
         # prepare the database
         logger.info("Creating new database...")

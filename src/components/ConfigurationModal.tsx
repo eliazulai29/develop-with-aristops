@@ -12,6 +12,10 @@ interface ConfigurationModalProps {
   // Repository input
   repositoryInput: string;
 
+  // Service name (mandatory)
+  serviceName: string;
+  setServiceName: (value: string) => void;
+
   // Language selection
   selectedLanguage: string;
   setSelectedLanguage: (value: string) => void;
@@ -64,6 +68,8 @@ export default function ConfigurationModal({
   isOpen,
   onClose,
   repositoryInput,
+  serviceName,
+  setServiceName,
   selectedLanguage,
   setSelectedLanguage,
   supportedLanguages,
@@ -133,6 +139,25 @@ export default function ConfigurationModal({
               <div className="bg-[var(--background)]/70 p-3 rounded-md border border-[var(--border-color)] text-sm text-[var(--foreground)]">
                 {repositoryInput}
               </div>
+            </div>
+
+            {/* Service Name - Mandatory */}
+            <div className="mb-4">
+              <label htmlFor="service-name" className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                {t.form?.serviceName || 'Service Name'} <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="service-name"
+                type="text"
+                value={serviceName}
+                onChange={(e) => setServiceName(e.target.value)}
+                placeholder={t.form?.serviceNamePlaceholder || 'Enter service name (e.g., "Sales Backend", "Analytics Platform")'}
+                className="block w-full px-3 py-2 text-sm rounded-md bg-[var(--background)]/70 border border-[var(--border-color)] text-[var(--foreground)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
+                required
+              />
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                {t.form?.serviceNameHelp || 'Organize repositories into logical services. Required for multi-repository analysis.'}
+              </p>
             </div>
 
             {/* Language selection */}

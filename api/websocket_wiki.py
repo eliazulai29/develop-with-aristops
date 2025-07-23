@@ -48,6 +48,9 @@ class ChatCompletionRequest(BaseModel):
     excluded_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to exclude from processing")
     included_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to include exclusively")
     included_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to include exclusively")
+    
+    # Service management
+    service_name: Optional[str] = Field("default", description="Name of the service to assign the repository to")
 
 async def handle_websocket_chat(websocket: WebSocket):
     """
@@ -104,12 +107,27 @@ async def handle_websocket_chat(websocket: WebSocket):
             request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
             
-            # Check if repository is already enriched
+            # Check if repository is already enriched using proper state management
             existing_docs_count = len(request_rag.transformed_docs)
             logger.info(f"Repository contains {existing_docs_count} documents")
             
-            if existing_docs_count > 4:  # Already enriched (basic repos typically have 1-4 docs)
-                logger.info(f"Repository already enriched ({existing_docs_count} documents). Skipping BAML enrichment.")
+            # Import and use state manager for proper decision making
+            from api.intelligence.repository_state_manager import RepositoryStateManager, RepositoryState
+            
+            config = {
+                'services_directory': '~/.adalflow/services',
+                'databases_directory': '~/.adalflow/databases'
+            }
+            state_manager = RepositoryStateManager(None, config)  # Don't initialize ServiceManager here
+            
+            # Proper state-based decision instead of flawed document count logic
+            should_skip_enrichment = state_manager.should_skip_enrichment_for_chat(
+                request.repo_url, 
+                getattr(request, 'service_name', None) or "default"
+            )
+            
+            if should_skip_enrichment:
+                logger.info(f"✅ Repository ready for chat, using existing enriched data ({existing_docs_count} documents).")
                 await progress.update_status("✅ Using pre-enriched repository data. Ready for questions!")
             else:
                 # Send status after FAISS indexing completes
@@ -171,7 +189,35 @@ async def handle_websocket_chat(websocket: WebSocket):
                         request_rag.db_manager.db.save_state(request_rag.db_manager.repo_paths["save_db_file"])
                         
                         logger.info(f"Repository enriched with {len(enrichment_result.enriched_documents)} additional insights")
-                        await progress.update_status("✅ Intelligence enrichment complete. Repository ready for questions!")
+                        await progress.update_status("✅ Intelligence enrichment complete. Creating service...")
+                        
+                        # Create service and assign repository (CRITICAL MISSING STEP)
+                        try:
+                            from api.intelligence.service_manager import ServiceManager
+                            service_manager = ServiceManager()
+                            
+                            # Create service if it doesn't exist
+                            service_name = getattr(request, 'service_name', None) or "default"
+                            service_id = service_manager.create_service(
+                                name=service_name,
+                                description=f"Service for {request.repo_url}",
+                                owner="system"
+                            )
+                            logger.info(f"✅ Service '{service_name}' created with ID: {service_id}")
+                            
+                            # Assign repository to service
+                            assignment_success = await service_manager.assign_repo_to_service(service_id, request.repo_url)
+                            if assignment_success:
+                                logger.info(f"✅ Repository successfully assigned to service '{service_name}'")
+                                await progress.update_status("✅ Repository ready for questions!")
+                            else:
+                                logger.error(f"❌ Failed to assign repository to service '{service_name}'")
+                                await progress.update_status("⚠️ Repository indexed but service assignment failed. Ready for questions!")
+                                
+                        except Exception as service_error:
+                            logger.error(f"❌ Service creation failed: {str(service_error)}")
+                            await progress.update_status("⚠️ Repository indexed but service creation failed. Ready for questions!")
+                            
                     else:
                         logger.warning("Enrichment completed but no additional documents generated")
                         await progress.update_status("✅ Repository analysis complete. Ready for questions!")

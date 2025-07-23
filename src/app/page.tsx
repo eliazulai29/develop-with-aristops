@@ -76,6 +76,7 @@ export default function Home() {
   };
 
   const [repositoryInput, setRepositoryInput] = useState('https://github.com/AsyncFuncAI/deepwiki-open');
+  const [serviceName, setServiceName] = useState('');
 
   const REPO_CONFIG_CACHE_KEY = 'deepwikiRepoConfigCache';
 
@@ -87,6 +88,7 @@ export default function Home() {
         const configs = JSON.parse(cachedConfigs);
         const config = configs[repoUrl.trim()];
         if (config) {
+          setServiceName(config.serviceName || '');
           setSelectedLanguage(config.selectedLanguage || language);
           setIsComprehensiveView(config.isComprehensiveView === undefined ? true : config.isComprehensiveView);
           setProvider(config.provider || '');
@@ -291,6 +293,12 @@ export default function Home() {
 
   const handleGenerateWiki = async () => {
 
+    // Validate mandatory service name
+    if (!serviceName.trim()) {
+      setError('Service name is required. Please enter a service name to organize your repositories.');
+      return;
+    }
+
     // Check authorization code
     const validation = await validateAuthCode();
     if(!validation) {
@@ -311,6 +319,7 @@ export default function Home() {
       if (currentRepoUrl) {
         const existingConfigs = JSON.parse(localStorage.getItem(REPO_CONFIG_CACHE_KEY) || '{}');
         const configToSave = {
+          serviceName,
           selectedLanguage,
           isComprehensiveView,
           provider,
@@ -379,6 +388,9 @@ export default function Home() {
     // Add language parameter
     params.append('language', selectedLanguage);
 
+    // Add service name parameter (mandatory)
+    params.append('service_name', serviceName.trim());
+
     // Add comprehensive parameter
     params.append('comprehensive', isComprehensiveView.toString());
 
@@ -445,6 +457,8 @@ export default function Home() {
             isOpen={isConfigModalOpen}
             onClose={() => setIsConfigModalOpen(false)}
             repositoryInput={repositoryInput}
+            serviceName={serviceName}
+            setServiceName={setServiceName}
             selectedLanguage={selectedLanguage}
             setSelectedLanguage={setSelectedLanguage}
             supportedLanguages={supportedLanguages}

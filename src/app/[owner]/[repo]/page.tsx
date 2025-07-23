@@ -245,6 +245,10 @@ export default function RepoWikiPage() {
   const includedFiles = searchParams.get('included_files') || '';
   const [modelIncludedDirs, setModelIncludedDirs] = useState(includedDirs);
   const [modelIncludedFiles, setModelIncludedFiles] = useState(includedFiles);
+  
+  // Extract service_name from URL params
+  const serviceName = searchParams.get('service_name') || undefined;
+  console.log('🔍 DEBUG: serviceName extracted from URL:', serviceName);
 
 
   // Wiki type state - default to comprehensive view
@@ -511,6 +515,16 @@ Remember:
 
         // Add tokens if available
         addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
+
+        // Add service name if available
+        if (serviceName) {
+          requestBody.service_name = serviceName;
+          console.log('🔍 DEBUG: Added service_name to requestBody:', serviceName);
+        } else {
+          console.log('🔍 DEBUG: serviceName is undefined, not adding to requestBody');
+        }
+
+        console.log('🔍 DEBUG: Final requestBody before WebSocket send:', JSON.stringify(requestBody, null, 2));
 
         // Use WebSocket for communication
         let content = '';
@@ -807,6 +821,16 @@ IMPORTANT:
 
       // Add tokens if available
       addTokensToRequestBody(requestBody, currentToken, effectiveRepoInfo.type, selectedProviderState, selectedModelState, isCustomSelectedModelState, customSelectedModelState, language, modelExcludedDirs, modelExcludedFiles, modelIncludedDirs, modelIncludedFiles);
+
+      // Add service name if available
+      if (serviceName) {
+        requestBody.service_name = serviceName;
+        console.log('🔍 DEBUG: Added service_name to requestBody:', serviceName);
+      } else {
+        console.log('🔍 DEBUG: serviceName is undefined, not adding to requestBody');
+      }
+
+      console.log('🔍 DEBUG: Final requestBody before WebSocket send:', JSON.stringify(requestBody, null, 2));
 
       // Use WebSocket for communication
       let responseText = '';
@@ -1272,11 +1296,17 @@ IMPORTANT:
           }
         }
 
-        // Convert tree data to a string representation
-        fileTreeData = treeData.tree
+        // Convert tree data to a string representation with intelligent sampling
+        const allFiles = treeData.tree
           .filter((item: { type: string; path: string }) => item.type === 'blob')
-          .map((item: { type: string; path: string }) => item.path)
-          .join('\n');
+          .map((item: { type: string; path: string }) => item.path);
+        
+        const { sampledFiles, isLargeRepo } = intelligentFileSampling(allFiles);
+        fileTreeData = sampledFiles.join('\n');
+        
+        if (isLargeRepo) {
+          console.log(`🔍 Applied intelligent sampling for large repository: ${sampledFiles.length} files selected from ${allFiles.length} total`);
+        }
 
         // Try to fetch README.md content
         try {
@@ -1355,11 +1385,17 @@ IMPORTANT:
             throw new Error('Could not fetch repository structure. Repository might be empty or inaccessible.');
         }
 
-          // Step 3: Format file paths
-        fileTreeData = filesData
-          .filter((item: { type: string; path: string }) => item.type === 'blob')
-          .map((item: { type: string; path: string }) => item.path)
-          .join('\n');
+          // Step 3: Format file paths with intelligent sampling
+          const allGitLabFiles = filesData
+            .filter((item: { type: string; path: string }) => item.type === 'blob')
+            .map((item: { type: string; path: string }) => item.path);
+          
+          const { sampledFiles: sampledGitLabFiles, isLargeRepo: isLargeGitLabRepo } = intelligentFileSampling(allGitLabFiles);
+          fileTreeData = sampledGitLabFiles.join('\n');
+          
+          if (isLargeGitLabRepo) {
+            console.log(`🔍 Applied intelligent sampling for large GitLab repository: ${sampledGitLabFiles.length} files selected from ${allGitLabFiles.length} total`);
+          }
 
           // Step 4: Try to fetch README.md content
           const readmeUrl = `${projectInfoUrl}/repository/files/README.md/raw`;
@@ -1436,11 +1472,17 @@ IMPORTANT:
           }
         }
 
-        // Convert files data to a string representation
-        fileTreeData = filesData.values
+        // Convert files data to a string representation with intelligent sampling
+        const allBitbucketFiles = filesData.values
           .filter((item: { type: string; path: string }) => item.type === 'commit_file')
-          .map((item: { type: string; path: string }) => item.path)
-          .join('\n');
+          .map((item: { type: string; path: string }) => item.path);
+        
+        const { sampledFiles: sampledBitbucketFiles, isLargeRepo: isLargeBitbucketRepo } = intelligentFileSampling(allBitbucketFiles);
+        fileTreeData = sampledBitbucketFiles.join('\n');
+        
+        if (isLargeBitbucketRepo) {
+          console.log(`🔍 Applied intelligent sampling for large Bitbucket repository: ${sampledBitbucketFiles.length} files selected from ${allBitbucketFiles.length} total`);
+        }
 
         // Try to fetch README.md content
         try {
@@ -1918,6 +1960,24 @@ IMPORTANT:
 
   const [isModelSelectionModalOpen, setIsModelSelectionModalOpen] = useState(false);
 
+  // Simple deterministic file sampling (NO API CALLS)
+  const intelligentFileSampling = (allFiles: string[]): { sampledFiles: string[], isLargeRepo: boolean } => {
+    const totalFiles = allFiles.length;
+    
+    // If small repository, return all files
+    if (totalFiles <= 300) {
+      return { sampledFiles: allFiles, isLargeRepo: false };
+    }
+    
+    console.log(`🔍 Large repository detected: ${totalFiles} files. Using first 300 files for analysis.`);
+    
+    // For large repos, take first 300 files (deterministic and reliable)
+    const sampledFiles = allFiles.slice(0, 300);
+    console.log(`🔍 Selected first ${sampledFiles.length} files from ${totalFiles} total`);
+    
+    return { sampledFiles, isLargeRepo: true };
+  };
+
   return (
     <div className="h-screen paper-texture p-4 md:p-8 flex flex-col">
       <style>{wikiStyles}</style>
@@ -2027,30 +2087,40 @@ IMPORTANT:
               <p className="text-[var(--muted)] text-sm mb-5 leading-relaxed">{wikiStructure.description}</p>
 
               {/* Display repository info */}
-              <div className="text-xs text-[var(--muted)] mb-5 flex items-center">
-                {effectiveRepoInfo.type === 'local' ? (
+              <div className="text-xs text-[var(--muted)] mb-5">
+                <div className="flex items-center mb-2">
+                  {effectiveRepoInfo.type === 'local' ? (
+                    <div className="flex items-center">
+                      <FaFolder className="mr-2" />
+                      <span className="break-all">{effectiveRepoInfo.localPath}</span>
+                    </div>
+                  ) : (
+                    <>
+                      {effectiveRepoInfo.type === 'github' ? (
+                        <FaGithub className="mr-2" />
+                      ) : effectiveRepoInfo.type === 'gitlab' ? (
+                        <FaGitlab className="mr-2" />
+                      ) : (
+                        <FaBitbucket className="mr-2" />
+                      )}
+                      <a
+                        href={effectiveRepoInfo.repoUrl ?? ''}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-[var(--accent-primary)] transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)]"
+                      >
+                        {effectiveRepoInfo.owner}/{effectiveRepoInfo.repo}
+                      </a>
+                    </>
+                  )}
+                </div>
+                {/* Display service name if available */}
+                {serviceName && (
                   <div className="flex items-center">
-                    <FaFolder className="mr-2" />
-                    <span className="break-all">{effectiveRepoInfo.localPath}</span>
+                    <span className="px-2 py-1 text-xs bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] rounded-full border border-[var(--accent-primary)]/20">
+                      Service: {serviceName}
+                    </span>
                   </div>
-                ) : (
-                  <>
-                    {effectiveRepoInfo.type === 'github' ? (
-                      <FaGithub className="mr-2" />
-                    ) : effectiveRepoInfo.type === 'gitlab' ? (
-                      <FaGitlab className="mr-2" />
-                    ) : (
-                      <FaBitbucket className="mr-2" />
-                    )}
-                    <a
-                      href={effectiveRepoInfo.repoUrl ?? ''}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-[var(--accent-primary)] transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)]"
-                    >
-                      {effectiveRepoInfo.owner}/{effectiveRepoInfo.repo}
-                    </a>
-                  </>
                 )}
               </div>
 
@@ -2218,6 +2288,7 @@ IMPORTANT:
               isCustomModel={isCustomSelectedModelState}
               customModel={customSelectedModelState}
               language={language}
+              serviceName={serviceName}
               onRef={(ref) => (askComponentRef.current = ref)}
             />
           </div>
