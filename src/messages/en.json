@@ -30,6 +30,9 @@
   },
   "form": {
     "repository": "Repository",
+    "serviceName": "Service Name",
+    "serviceNamePlaceholder": "Enter service name (e.g., \"Sales Backend\", \"Analytics Platform\")",
+    "serviceNameHelp": "Organize repositories into logical services. Required for multi-repository analysis.",
     "configureWiki": "Configure Wiki",
     "repoPlaceholder": "owner/repo or GitHub/GitLab/Bitbucket URL",
     "wikiLanguage": "Wiki Language",

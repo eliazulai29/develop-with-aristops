@@ -462,6 +462,99 @@ IMPORTANT FORMATTING RULES:
                 logger.error(f"Sample embedding sizes: {', '.join(sizes)}")
             raise
 
+    def load_from_service(self, service_data: Dict[str, Any]) -> bool:
+        """
+        Load existing FAISS data from service instead of rebuilding.
+        
+        Args:
+            service_data: Service data containing repository information
+            
+        Returns:
+            bool: True if successfully loaded, False otherwise
+        """
+        try:
+            service_id = service_data.get("service_id")
+            if not service_id:
+                logger.error("No service_id provided in service_data")
+                return False
+            
+            logger.info(f"🔍 Loading existing data from service: {service_id}")
+            
+            # Initialize database manager
+            self.initialize_db_manager()
+            
+            # Try to find existing repository data in the service
+            repositories = service_data.get("repositories", {})
+            if not repositories:
+                logger.error("No repositories found in service data")
+                return False
+            
+            # Get the first repository (assuming single repo per chat session)
+            repo_info = list(repositories.values())[0]
+            repo_url = repo_info.get("url")
+            
+            if not repo_url:
+                logger.error("No repository URL found in service data")
+                return False
+            
+            # Extract repository name for database lookup
+            import re
+            repo_name_match = re.search(r'/([^/]+/[^/]+)(?:\.git)?/?$', repo_url)
+            if not repo_name_match:
+                logger.error(f"Could not extract repo name from URL: {repo_url}")
+                return False
+            
+            repo_name = repo_name_match.group(1).replace('/', '_')
+            
+            # Try to load existing database
+            from api.data_pipeline import get_adalflow_default_root_path
+            import os
+            
+            root_path = get_adalflow_default_root_path()
+            db_file = os.path.join(root_path, "databases", f"{repo_name}.pkl")
+            
+            if not os.path.exists(db_file):
+                logger.warning(f"Database file not found: {db_file}")
+                return False
+            
+            logger.info(f"Loading existing database from: {db_file}")
+            
+            # Load the database
+            from adalflow.core.db import LocalDB
+            self.db_manager.db = LocalDB.load_state(db_file)
+            self.transformed_docs = self.db_manager.db.get_transformed_data(key="split_and_embed")
+            
+            if not self.transformed_docs:
+                logger.warning("No transformed documents found in database")
+                return False
+            
+            # Validate embeddings
+            self.transformed_docs = self._validate_and_filter_embeddings(self.transformed_docs)
+            
+            if not self.transformed_docs:
+                logger.error("No valid embeddings found after validation")
+                return False
+            
+            # Create FAISS retriever with existing data
+            retrieve_embedder = self.query_embedder if self.is_ollama_embedder else self.embedder
+            
+            from adalflow.components.retriever.faiss_retriever import FAISSRetriever
+            from api.config import configs
+            
+            self.retriever = FAISSRetriever(
+                **configs["retriever"],
+                embedder=retrieve_embedder,
+                documents=self.transformed_docs,
+                document_map_func=lambda doc: doc.vector,
+            )
+            
+            logger.info(f"✅ Successfully loaded {len(self.transformed_docs)} documents from service data")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error loading from service: {str(e)}")
+            return False
+
     def call(self, query: str, language: str = "en") -> Tuple[List]:
         """
         Process a query using RAG.

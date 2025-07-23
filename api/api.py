@@ -12,6 +12,15 @@ import asyncio
 
 # Configure logging
 from api.logging_config import setup_logging
+from api.intelligence.service_manager import ServiceManager
+
+# Check BAML availability
+try:
+    from api.baml_client import b
+    BAML_AVAILABLE = True
+except ImportError:
+    BAML_AVAILABLE = False
+    b = None
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -97,6 +106,48 @@ class WikiCacheData(BaseModel):
     repo: Optional[RepoInfo] = None
     provider: Optional[str] = None
     model: Optional[str] = None
+
+# --- Service Management Models ---
+
+class ServiceCreate(BaseModel):
+    """Model for creating a new service."""
+    name: str = Field(..., min_length=1, max_length=100, description="Service name")
+    description: str = Field("", max_length=500, description="Service description")
+    owner: str = Field("", max_length=100, description="Service owner or team")
+
+class ServiceSummary(BaseModel):
+    """Model for service summary in listings."""
+    id: str
+    name: str
+    description: str
+    owner: str
+    created_at: str
+    last_updated: str
+    repository_count: int
+
+class RepositoryInfo(BaseModel):
+    """Model for repository information within a service."""
+    role: str
+    tech_stack: str
+    deployment: str
+    communication_protocols: Dict[str, List[str]]
+    added_at: str
+
+class ServiceDetail(BaseModel):
+    """Model for detailed service information."""
+    id: str
+    name: str
+    description: str
+    owner: str
+    created_at: str
+    last_updated: str
+    repositories: Dict[str, RepositoryInfo]
+    repository_count: int
+
+class RepositoryAssignment(BaseModel):
+    """Model for assigning a repository to a service."""
+    repo_url: str = Field(..., description="Repository URL")
+    repo_role: str = Field("UNKNOWN", description="Repository role in the service")
 
 class WikiCacheRequest(BaseModel):
     """
@@ -224,6 +275,178 @@ async def get_model_config():
             defaultProvider="google"
         )
 
+# --- Service Management Endpoints ---
+
+@app.get("/api/services/", response_model=List[ServiceSummary])
+async def list_services():
+    """
+    List all available services.
+    
+    Returns:
+        List of service summaries
+    """
+    try:
+        service_manager = ServiceManager()
+        services = service_manager.list_services()
+        
+        # Convert to Pydantic models
+        return [ServiceSummary(**service) for service in services]
+        
+    except Exception as e:
+        logger.error(f"Error listing services: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list services")
+
+@app.post("/api/services/", response_model=Dict[str, str])
+async def create_service(service_data: ServiceCreate):
+    """
+    Create a new service.
+    
+    Args:
+        service_data: Service creation data
+        
+    Returns:
+        Created service ID
+    """
+    try:
+        service_manager = ServiceManager()
+        service_id = service_manager.create_service(
+            name=service_data.name,
+            description=service_data.description,
+            owner=service_data.owner
+        )
+        
+        logger.info(f"Created service '{service_data.name}' with ID: {service_id}")
+        return {"service_id": service_id, "message": "Service created successfully"}
+        
+    except ValueError as e:
+        logger.warning(f"Service creation validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating service: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create service")
+
+@app.get("/api/services/{service_id}", response_model=ServiceDetail)
+async def get_service(service_id: str):
+    """
+    Get detailed service information.
+    
+    Args:
+        service_id: Unique service identifier
+        
+    Returns:
+        Detailed service information
+    """
+    try:
+        service_manager = ServiceManager()
+        service_data = service_manager.get_service(service_id)
+        
+        if not service_data:
+            raise HTTPException(status_code=404, detail="Service not found")
+        
+        return ServiceDetail(**service_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting service {service_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get service")
+
+@app.post("/api/services/{service_id}/repos", response_model=Dict[str, str])
+async def assign_repo_to_service(service_id: str, repo_assignment: RepositoryAssignment):
+    """
+    Assign a repository to a service with automatic protocol detection.
+    
+    Args:
+        service_id: Target service ID
+        repo_assignment: Repository assignment data
+        
+    Returns:
+        Success message with detected protocols
+    """
+    try:
+        service_manager = ServiceManager()
+        
+        # Assign repository with BAML-powered analysis
+        success = await service_manager.assign_repo_to_service(
+            service_id=service_id,
+            repo_url=repo_assignment.repo_url,
+            repo_role=repo_assignment.repo_role
+        )
+        
+        if success:
+            # Get updated service to show detected protocols
+            service_data = service_manager.get_service(service_id)
+            repo_info = service_data["repositories"].get(repo_assignment.repo_url, {})
+            protocols = repo_info.get("communication_protocols", [])
+            
+            protocol_summary = ", ".join([p.get("protocol_type", "Unknown") for p in protocols]) if protocols else "None"
+            
+            logger.info(f"Successfully assigned {repo_assignment.repo_url} to service {service_id}")
+            return {
+                "message": "Repository assigned successfully",
+                "detected_protocols": protocol_summary,
+                "tech_stack": repo_info.get("tech_stack", "UNKNOWN")
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to assign repository")
+            
+    except ValueError as e:
+        logger.warning(f"Repository assignment validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error assigning repository to service {service_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to assign repository")
+
+@app.get("/api/services/{service_id}/protocols", response_model=Dict[str, Any])
+async def get_service_protocols(service_id: str):
+    """
+    Get detected communication protocols for a service.
+    
+    Args:
+        service_id: Service identifier
+        
+    Returns:
+        Service protocol summary
+    """
+    try:
+        service_manager = ServiceManager()
+        service_data = service_manager.get_service(service_id)
+        
+        if not service_data:
+            raise HTTPException(status_code=404, detail="Service not found")
+        
+        # Aggregate protocols across all repositories
+        all_protocols = {}
+        tech_stacks = []
+        
+        for repo_url, repo_info in service_data.get("repositories", {}).items():
+            protocols = repo_info.get("communication_protocols", {})
+            tech_stack = repo_info.get("tech_stack", "UNKNOWN")
+            
+            if tech_stack != "UNKNOWN":
+                tech_stacks.append(tech_stack)
+            
+            for protocol_type, endpoints in protocols.items():
+                if protocol_type not in all_protocols:
+                    all_protocols[protocol_type] = []
+                all_protocols[protocol_type].extend(endpoints)
+        
+        return {
+            "service_id": service_id,
+            "service_name": service_data["name"],
+            "communication_protocols": all_protocols,
+            "tech_stacks": list(set(tech_stacks)),
+            "repository_count": service_data.get("repository_count", 0)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting protocols for service {service_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get service protocols")
+
 @app.post("/export/wiki")
 async def export_wiki(request: WikiExportRequest):
     """
@@ -318,6 +541,8 @@ async def get_local_repo_structure(path: str = Query(None, description="Path to 
             status_code=500,
             content={"error": f"Error processing local repository: {str(e)}"}
         )
+
+
 
 def generate_markdown_export(repo_url: str, pages: List[WikiPage]) -> str:
     """

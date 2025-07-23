@@ -16,9 +16,8 @@ from adalflow.core.types import Document
 try:
     from api.baml_client.async_client import b
     from api.baml_client.types import (
-        CodeAnalysis, CodeComponent, Dependency, ArchitecturalInsight, 
-        SecurityAnalysis, PerformanceInsight, TestingInsight, OperationalInsight
-    )
+    CodeAnalysis, CodeComponent, Dependency, ArchitecturalInsight
+)
 except ImportError as e:
     # Handle missing BAML gracefully
     raise ImportError(f"BAML client not available: {e}")
@@ -260,57 +259,8 @@ class IntraRepoAnalyzer(adal.Component):
             arch_doc = await add_embedding(arch_doc)
             enriched_docs.append(arch_doc)
         
-        # Generate security analysis document
-        if analysis.security:
-            security_doc = Document(
-                text=self._format_security_document(analysis.security),
-                meta_data={
-                    "type": "security_analysis",
-                    "source": "baml_enrichment",
-                    "repo_url": self.repo_url
-                }
-            )
-            security_doc = await add_embedding(security_doc)
-            enriched_docs.append(security_doc)
-        
-        # Generate performance insights document
-        if analysis.performance:
-            perf_doc = Document(
-                text=self._format_performance_document(analysis.performance),
-                meta_data={
-                    "type": "performance_analysis",
-                    "source": "baml_enrichment",
-                    "repo_url": self.repo_url
-                }
-            )
-            perf_doc = await add_embedding(perf_doc)
-            enriched_docs.append(perf_doc)
-        
-        # Generate testing insights document
-        if analysis.testing:
-            testing_doc = Document(
-                text=self._format_testing_document(analysis.testing),
-                meta_data={
-                    "type": "testing_analysis",
-                    "source": "baml_enrichment",
-                    "repo_url": self.repo_url
-                }
-            )
-            testing_doc = await add_embedding(testing_doc)
-            enriched_docs.append(testing_doc)
-        
-        # Generate operational insights document
-        if analysis.operations:
-            ops_doc = Document(
-                text=self._format_operational_document(analysis.operations),
-                meta_data={
-                    "type": "operational_analysis",
-                    "source": "baml_enrichment",
-                    "repo_url": self.repo_url
-                }
-            )
-            ops_doc = await add_embedding(ops_doc)
-            enriched_docs.append(ops_doc)
+        # Analytical documents removed - now handled by chat-time AdalFlow analysis
+        # This includes: security, performance, testing, and operational analysis
         
         # Generate HOW/WHERE/WHY insights document
         if analysis.keyInsights or analysis.howToQuestions or analysis.whereToLook or analysis.whyDecisions:
@@ -335,9 +285,9 @@ class IntraRepoAnalyzer(adal.Component):
                      f"- Components: {len(analysis.components or [])}\n"
                      f"- Dependencies: {len(analysis.dependencies or [])}\n"
                      f"- Architecture Pattern: {analysis.architecture.pattern.value if analysis.architecture and analysis.architecture.pattern else 'Unknown'}\n"
-                     f"- Security Analysis: {'✅ Complete' if analysis.security else '❌ Not analyzed'}\n"
-                     f"- Performance Analysis: {'✅ Complete' if analysis.performance else '❌ Not analyzed'}\n"
-                     f"- Testing Analysis: {'✅ Complete' if analysis.testing else '❌ Not analyzed'}",
+                                 f"- Navigation Guidance: {'✅ Complete' if analysis.navigationTips else '❌ Not analyzed'}\n"
+            f"- Entry Points: {'✅ Complete' if analysis.entryPoints else '❌ Not analyzed'}\n"
+            f"- Core Components: {'✅ Complete' if analysis.coreComponents else '❌ Not analyzed'}",
                 meta_data={
                     "type": "architecture_summary",
                     "source": "baml_enrichment", 
@@ -373,9 +323,7 @@ class IntraRepoAnalyzer(adal.Component):
             doc_text += f"**Public Interface**: {', '.join(public_interface)}\n\n"
         
         # Add quality issues
-        quality_issues = getattr(component, 'qualityIssues', [])
-        if quality_issues:
-            doc_text += f"**Quality Issues**: {', '.join([issue.value for issue in quality_issues])}\n\n"
+        # Quality issues removed - now handled by chat-time analysis
         
         # Add refactoring opportunities
         refactoring_ops = getattr(component, 'refactoringOpportunities', [])
@@ -424,143 +372,32 @@ class IntraRepoAnalyzer(adal.Component):
         
         return doc_text
     
-    def _format_security_document(self, security: SecurityAnalysis) -> str:
-        """Format security analysis into a searchable document."""
-        doc_text = f"# Security Analysis\n\n"
-        
-        if security.vulnerabilities:
-            doc_text += f"**Potential Vulnerabilities**:\n"
-            for vuln in security.vulnerabilities:
-                doc_text += f"- {vuln}\n"
-            doc_text += "\n"
-        
-        if security.securityPatterns:
-            doc_text += f"**Security Patterns Identified**:\n"
-            for pattern in security.securityPatterns:
-                doc_text += f"- {pattern}\n"
-            doc_text += "\n"
-        
-        if security.recommendations:
-            doc_text += f"**Security Recommendations**:\n"
-            for rec in security.recommendations:
-                doc_text += f"- {rec}\n"
-            doc_text += "\n"
-        
-        if security.dataFlowRisks:
-            doc_text += f"**Data Flow Security Risks**:\n"
-            for risk in security.dataFlowRisks:
-                doc_text += f"- {risk}\n"
-            doc_text += "\n"
-        
-        doc_text += "This analysis identifies potential security concerns and provides "
-        doc_text += "recommendations for improving the security posture of the codebase."
-        
-        return doc_text
-    
-    def _format_performance_document(self, performance: PerformanceInsight) -> str:
-        """Format performance insights into a searchable document."""
-        doc_text = f"# Performance Analysis\n\n"
-        
-        if performance.bottlenecks:
-            doc_text += f"**Performance Bottlenecks**:\n"
-            for bottleneck in performance.bottlenecks:
-                doc_text += f"- {bottleneck}\n"
-            doc_text += "\n"
-        
-        if performance.optimizationOpportunities:
-            doc_text += f"**Optimization Opportunities**:\n"
-            for opp in performance.optimizationOpportunities:
-                doc_text += f"- {opp}\n"
-            doc_text += "\n"
-        
-        if performance.scalabilityConcerns:
-            doc_text += f"**Scalability Concerns**:\n"
-            for concern in performance.scalabilityConcerns:
-                doc_text += f"- {concern}\n"
-            doc_text += "\n"
-        
-        doc_text += f"**Resource Usage**: {performance.resourceUsage}\n\n"
-        doc_text += "This analysis identifies performance bottlenecks and provides "
-        doc_text += "suggestions for optimization and improved scalability."
-        
-        return doc_text
-    
-    def _format_testing_document(self, testing: TestingInsight) -> str:
-        """Format testing insights into a searchable document."""
-        doc_text = f"# Testing Analysis\n\n"
-        doc_text += f"**Test Coverage**: {testing.testCoverage}\n\n"
-        
-        if testing.testableComponents:
-            doc_text += f"**Well-Testable Components**:\n"
-            for comp in testing.testableComponents:
-                doc_text += f"- {comp}\n"
-            doc_text += "\n"
-        
-        if testing.hardToTestComponents:
-            doc_text += f"**Hard-to-Test Components**:\n"
-            for comp in testing.hardToTestComponents:
-                doc_text += f"- {comp}\n"
-            doc_text += "\n"
-        
-        if testing.testingRecommendations:
-            doc_text += f"**Testing Recommendations**:\n"
-            for rec in testing.testingRecommendations:
-                doc_text += f"- {rec}\n"
-            doc_text += "\n"
-        
-        if testing.missingTestTypes:
-            doc_text += f"**Missing Test Types**:\n"
-            for test_type in testing.missingTestTypes:
-                doc_text += f"- {test_type}\n"
-            doc_text += "\n"
-        
-        doc_text += "This analysis evaluates the testability of the codebase and provides "
-        doc_text += "recommendations for improving test coverage and quality."
-        
-        return doc_text
-    
-    def _format_operational_document(self, operations: OperationalInsight) -> str:
-        """Format operational insights into a searchable document."""
-        doc_text = f"# Operational Analysis\n\n"
-        doc_text += f"**Maintenance Complexity**: {operations.maintenanceComplexity}\n\n"
-        
-        if operations.configurationFiles:
-            doc_text += f"**Configuration Files**:\n"
-            for config in operations.configurationFiles:
-                doc_text += f"- {config}\n"
-            doc_text += "\n"
-        
-        if operations.environmentDependencies:
-            doc_text += f"**Environment Dependencies**:\n"
-            for dep in operations.environmentDependencies:
-                doc_text += f"- {dep}\n"
-            doc_text += "\n"
-        
-        if operations.deploymentConsiderations:
-            doc_text += f"**Deployment Considerations**:\n"
-            for consideration in operations.deploymentConsiderations:
-                doc_text += f"- {consideration}\n"
-            doc_text += "\n"
-        
-        if operations.monitoringOpportunities:
-            doc_text += f"**Monitoring Opportunities**:\n"
-            for opp in operations.monitoringOpportunities:
-                doc_text += f"- {opp}\n"
-            doc_text += "\n"
-        
-        doc_text += "This analysis provides insights into operational aspects including "
-        doc_text += "deployment, configuration, and maintenance considerations."
-        
-        return doc_text
+    # Removed analytical formatting methods - now handled by chat-time AdalFlow analysis:
+    # - _format_security_document (security analysis)
+    # - _format_performance_document (performance analysis)  
+    # - _format_testing_document (testing analysis)
+    # - _format_operational_document (operational analysis)
     
     def _format_insights_document(self, analysis: CodeAnalysis) -> str:
-        """Format HOW/WHERE/WHY insights into a searchable document."""
-        doc_text = f"# Repository Insights for Developers\n\n"
+        """Format structural insights into a searchable document."""
+        doc_text = f"# Repository Navigation & Structural Insights\n\n"
         
         if analysis.keyInsights:
-            doc_text += f"**🔑 Key Insights**:\n"
+            doc_text += f"**🔑 Key Structural Insights**:\n"
             for insight in analysis.keyInsights:
                 doc_text += f"- {insight}\n"
+            doc_text += "\n"
+        
+        if analysis.entryPoints:
+            doc_text += f"**🚪 Entry Points**:\n"
+            for entry_point in analysis.entryPoints:
+                doc_text += f"- {entry_point}\n"
+            doc_text += "\n"
+        
+        if analysis.coreComponents:
+            doc_text += f"**⚙️ Core Components**:\n"
+            for component in analysis.coreComponents:
+                doc_text += f"- {component}\n"
             doc_text += "\n"
         
         if analysis.howToQuestions:
@@ -581,20 +418,14 @@ class IntraRepoAnalyzer(adal.Component):
                 doc_text += f"- {decision}\n"
             doc_text += "\n"
         
-        if analysis.debuggingTips:
-            doc_text += f"**🐛 Debugging Tips**:\n"
-            for tip in analysis.debuggingTips:
+        if analysis.navigationTips:
+            doc_text += f"**🧭 Navigation Tips**:\n"
+            for tip in analysis.navigationTips:
                 doc_text += f"- {tip}\n"
             doc_text += "\n"
         
-        if analysis.refactoringPriorities:
-            doc_text += f"**🔧 Refactoring Priorities**:\n"
-            for priority in analysis.refactoringPriorities:
-                doc_text += f"- {priority}\n"
-            doc_text += "\n"
-        
-        doc_text += "This document provides curated insights to help developers understand "
-        doc_text += "how the codebase works, where to find specific functionality, and why "
-        doc_text += "certain architectural decisions were made."
+        doc_text += "This document provides structural insights to help developers understand "
+        doc_text += "the codebase architecture, navigate components, and find functionality. "
+        doc_text += "For quality, performance, security, and testing analysis, ask specific questions in chat."
         
         return doc_text 
