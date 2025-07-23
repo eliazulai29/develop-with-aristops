@@ -137,7 +137,7 @@ function AnalyzeCode(code: string) -> CodeAnalysis {
     - Test coverage
     - Code quality issues
     - Deployment concerns
-
+    
     {{ ctx.output_format }}
 
     {{ _.role("user") }}
